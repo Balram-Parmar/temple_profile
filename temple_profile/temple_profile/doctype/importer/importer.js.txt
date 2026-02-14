@@ -1,0 +1,112 @@
+frappe.ui.form.on("Importer", {
+	refresh(frm) {
+		if (!frm.is_new()) {
+			frm.add_custom_button("Process CSV", () => {
+				// 1. Validate Attachment
+				if (!frm.doc.attach) {
+					frappe.throw(__("Please attach a CSV file first."));
+					return;
+				}
+
+				// 2. Validate Target DocType Selection
+				if (!frm.doc.target_doc_type) {
+					frappe.throw(__("Please select a Target DocType (Folk or Donor)."));
+					return;
+				}
+
+				frappe.call({
+					// Ensure this path matches your actual file structure
+					method: "temple_profile.temple_profile.doctype.importer.importer.process_csv",
+					args: {
+						docname: frm.doc.name,
+						target_doctype: frm.doc.target_doc_type,
+					},
+					freeze: true,
+					freeze_message: __("Processing CSV..."),
+					callback(r) {
+						if (r.message && r.message.success) {
+							const stats = r.message.stats;
+
+							// 3. Create a nice summary table
+							let msg_html = `
+                                <h5>Processing Complete ✅</h5>
+                                <table class="table table-bordered table-condensed" style="margin-top:10px;">
+                                    <tr>
+                                        <td>Total Rows Processed</td>
+                                        <td><strong>${stats.processed}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>New Temple Profiles Created</td>
+                                        <td>${stats.temple_profile_created}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Existing Temple Profiles Found</td>
+                                        <td>${stats.existing_tp_profile}</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Linked to ${frm.doc.target_doc_type}(Already Existing)</td>
+                                        <td ><strong>${stats.existing_target_profile_linked}</strong></td>
+                                    </tr>
+                                    <tr>
+                                        <td>New ${frm.doc.target_doc_type} created</td>
+                                        <td >${stats.target_profile_created}</td>
+                                    </tr>
+                                </table>
+                            `;
+
+							frappe.msgprint({
+								title: __("Import Summary"),
+								message: msg_html,
+								indicator: "green",
+								wide: true, // Makes the dialog wider for better table view
+							});
+						} else {
+							// Handle logic errors returned by the function
+							frappe.msgprint({
+								title: __("Error"),
+								message: r.message?.error || "Something went wrong",
+								indicator: "red",
+							});
+						}
+					},
+					error(err) {
+						// Handle server-side exceptions (500 errors)
+						frappe.msgprint({
+							title: __("Server Error"),
+							message: "An internal server error occurred. Please check the logs.",
+							indicator: "red",
+						});
+					},
+				});
+			});
+		}
+	},
+});
+
+
+
+frappe.ui.form.on("Importer", {
+	download(frm) {
+		// Get the selected value from "Target Doc Type" field
+		const target_doc_type = frm.doc.target_doc_type; // ⚠️ replace with actual fieldname if different
+
+		if (!target_doc_type) {
+			frappe.msgprint("Please select a Target Doc Type first");
+			return;
+		}
+
+		// Define URL mapping based on selected doc type
+		const url_mapping = {
+			Folk: "https://drive.google.com/file/d/1wUMgPbonkd0GlANtGQlPrn2jLlV6SM-N/view?usp=drive_link",
+			Donor: "https://drive.google.com/file/d/11w5q4EI7xiS4SAzVepkDYujDgimO3SGW/view?usp=drive_linkv",
+		};
+
+		const download_url = url_mapping[target_doc_type];
+
+		if (download_url) {
+			window.open(download_url, "_blank");
+		} else {
+			frappe.msgprint(`No CSV template configured for: ${target_doc_type}`);
+		}
+	},
+});

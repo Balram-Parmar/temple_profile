@@ -1,0 +1,254 @@
+# Copyright (c) 2026, balram and contributors
+# For license information, please see license.txt
+
+
+
+import frappe
+import pandas as pd
+import os
+
+from frappe.model.document import Document
+
+
+class Importer(Document):
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
+
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		attach: DF.Attach | None
+		name1: DF.Data | None
+		target_doc_type: DF.Literal["Folk", "Donor"]
+	# end: auto-generated types
+
+	pass
+
+
+
+@frappe.whitelist()
+def process_csv(docname: str, target_doctype: str):
+ 
+    # --- 1. Fetch Importer Document ---
+    doc = frappe.get_doc("Importer", docname)
+    if not doc.attach:
+        return {"success": False, "error": "No CSV file attached"}
+
+    # --- 2. Resolve File Path ---
+    file_path = frappe.get_site_path(doc.attach.lstrip("/"))
+
+    if not os.path.exists(file_path):
+        return {"success": False, "error": "CSV file not found on server"}
+
+    # --- 3. Load & Validate CSV ---
+    try:
+       
+        df = pd.read_csv(file_path, dtype=str)
+    except Exception as e:
+        return {"success": False, "error": f"Pandas Read Error: {str(e)}"}
+
+    required_columns = ["full_name","mobile_number"]
+    missing = [c for c in required_columns if c not in df.columns]
+    if missing:
+        frappe.throw(f"Missing columns in CSV: {', '.join(missing)}")
+
+   
+    stats = {
+        "processed": 0,
+        "temple_profile_created": 0,
+        "existing_tp_profile": 0,
+        "target_profile_created": 0,
+        "existing_target_profile_linked": 0,  # Added this key
+        
+    }
+
+    for index, row in df.iterrows():
+        # Force conversion to standard Python string
+        full_name = str(row.get('full_name', '')).strip()
+        mobile_number = str(row.get('mobile_number', '')).strip()
+
+        # Handle "nan" strings or empty values
+        if not mobile_number or mobile_number.lower() == 'nan':
+            continue
+        
+        stats["processed"] += 1
+
+        # --- STEP A: Handle "Temple Profile" ---
+        #Returns None if not found
+        temple_profile_name = frappe.db.get_value("Temple Profile", {"mobile_number": mobile_number}, "name")
+
+        if not temple_profile_name:
+            try:
+                new_tp = frappe.get_doc({
+                    "doctype": "Temple Profile",
+                    "full_name": full_name,
+                    "mobile_number": mobile_number
+                })
+                new_tp.insert(ignore_permissions=True)
+                temple_profile_name = new_tp.name
+                stats["temple_profile_created"] += 1
+            except Exception as e:
+                frappe.log_error(f"Error creating profile for {mobile_number}: {str(e)}", "CSV Import Error")
+                continue
+
+        else:
+            stats["existing_tp_profile"] += 1
+
+        # --- STEP B: Link to Target (Folk/Donor) ---
+        # use mobile_number AND Full_Name for matching (more robust than matching name + number)
+        target_name = frappe.db.get_value(target_doctype, {"full_name":full_name,"mobile_number": mobile_number}, "name")
+
+        if target_name:
+            # Case 1: Target exists -> Link them
+            frappe.db.set_value(target_doctype, target_name, "temple_id", temple_profile_name)
+            stats["existing_target_profile_linked"] += 1
+        else:
+            # Case 2: Target does NOT exist -> Create new with link included
+            try:
+                new_target = frappe.get_doc({
+                    "doctype": target_doctype,
+                    "full_name": full_name,
+                    "mobile_number": mobile_number,
+                    "temple_id": temple_profile_name  # Set link immediately
+                })
+                new_target.insert(ignore_permissions=True)
+                stats["target_profile_created"] += 1
+            except Exception as e:
+                frappe.log_error(f"Error creating target for {mobile_number}: {str(e)}", "CSV Import Error")
+
+    # --- 5. Commit & Return ---
+    frappe.db.commit()
+
+    # CRITICAL: Convert all stats to standard Python integers for JSON serialization
+    clean_stats = {k: int(v) for k, v in stats.items()}
+
+    return {
+        "success": True,
+        "message": "CSV Processing Completed",
+        "stats": clean_stats
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# @frappe.whitelist()
+# def process_csv(docname:str,target_doctype:str):
+#     doc = frappe.get_doc("Importer", docname)
+
+#     if not doc.attach:
+#         return {
+#             "success": False,
+#             "error": "No CSV file attached"
+#         }
+
+#     # Convert URL to real path
+#     file_path = frappe.get_site_path(doc.attach.lstrip("/"))
+
+#     if not os.path.exists(file_path):
+#         return {
+#             "success": False,
+#             "error": "CSV file not found on server",
+#             "path": file_path
+#         }
+#     df=pd.read_csv(file_path);
+#     df = pd.read_csv(file_path)
+
+# # 2. Define the columns you are looking for
+#     required_columns = ["full_name", "mobile_number"]
+
+# # 3. Check if they exist
+# # set(required_columns).issubset(df.columns) checks if all items are present
+#     if all(col in df.columns for col in required_columns):
+#             print("Both columns exist!")
+#     else:
+    
+#         missing = [c for c in required_columns if c not in df.columns]
+#         print(f"Missing columns: {', '.join(missing)}")
+#         frappe.throw(f"Missing columns: {', '.join(missing)}")
+
+  
+    
+    
+    
+
+#     return {
+#         "success": True,
+     
+#     }

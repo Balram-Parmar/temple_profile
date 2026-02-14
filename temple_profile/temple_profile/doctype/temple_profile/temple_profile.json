@@ -1,0 +1,79 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "Profile-Id-.#####",
+ "creation": "2026-02-10 16:29:59.557342",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "full_name",
+  "mobile_number",
+  "column_break_sxef",
+  "email_id"
+ ],
+ "fields": [
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name"
+  },
+  {
+   "fieldname": "mobile_number",
+   "fieldtype": "Data",
+   "label": "Mobile Number"
+  },
+  {
+   "fieldname": "column_break_sxef",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "email_id",
+   "fieldtype": "Data",
+   "label": "Email Id"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [
+  {
+   "group": "FLOK",
+   "link_doctype": "Folk",
+   "link_fieldname": "temple_id"
+  },
+  {
+   "group": "DONOR",
+   "link_doctype": "Donor",
+   "link_fieldname": "temple_id"
+  },
+  {
+   "group": "SADHNA",
+   "link_doctype": "Sadhna",
+   "link_fieldname": "temple_id"
+  }
+ ],
+ "modified": "2026-02-13 14:18:07.271767",
+ "modified_by": "Administrator",
+ "module": "Temple Profile",
+ "name": "Temple Profile",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -4,11 +4,11 @@ authors = [
     { name = "balram", email = "thcoc460@gmail.com"}
 ]
 description = "this will make connections between new profiles"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
-    # "frappe~=16.0.0" # Installed and managed by bench.
+    # "frappe~=15.0.0" # Updated to match your current bench version
 ]
 
 [build-system]
@@ -21,7 +21,7 @@ build-backend = "flit_core.buildapi"
 
 [tool.ruff]
 line-length = 110
-target-version = "py314"
+target-version = "py312"  # CHANGED: Matching your installed Python version
 
 [tool.ruff.lint]
 select = [

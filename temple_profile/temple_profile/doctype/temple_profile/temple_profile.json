@@ -9,7 +9,9 @@
   "full_name",
   "mobile_number",
   "column_break_sxef",
-  "email_id"
+  "email_id",
+  "family_information_section",
+  "relatives"
  ],
  "fields": [
   {
@@ -30,6 +32,17 @@
    "fieldname": "email_id",
    "fieldtype": "Data",
    "label": "Email Id"
+  },
+  {
+   "fieldname": "relatives",
+   "fieldtype": "Table",
+   "label": "Relatives",
+   "options": "Temple Profile Relatives"
+  },
+  {
+   "fieldname": "family_information_section",
+   "fieldtype": "Section Break",
+   "label": "Family Information"
   }
  ],
  "grid_page_length": 50,
@@ -44,14 +57,9 @@
    "group": "DONOR",
    "link_doctype": "Donor",
    "link_fieldname": "temple_id"
-  },
-  {
-   "group": "SADHNA",
-   "link_doctype": "Sadhna",
-   "link_fieldname": "temple_id"
   }
  ],
- "modified": "2026-02-13 14:18:07.271767",
+ "modified": "2026-02-16 10:16:58.340825",
  "modified_by": "Administrator",
  "module": "Temple Profile",
  "name": "Temple Profile",

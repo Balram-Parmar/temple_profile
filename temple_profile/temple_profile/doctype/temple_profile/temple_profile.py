@@ -13,10 +13,12 @@ class TempleProfile(Document):
 
 	if TYPE_CHECKING:
 		from frappe.types import DF
+		from temple_profile.temple_profile.doctype.temple_profile_relatives.temple_profile_relatives import TempleProfileRelatives
 
 		email_id: DF.Data | None
 		full_name: DF.Data | None
 		mobile_number: DF.Data | None
+		relatives: DF.Table[TempleProfileRelatives]
 	# end: auto-generated types
 
 	pass

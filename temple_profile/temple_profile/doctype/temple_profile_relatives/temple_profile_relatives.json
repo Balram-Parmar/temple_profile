@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-16 10:08:32.026180",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "full_name",
+  "mobile_number",
+  "relation"
+ ],
+ "fields": [
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Full Name"
+  },
+  {
+   "fieldname": "mobile_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Mobile Number"
+  },
+  {
+   "fieldname": "relation",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Relation",
+   "options": "Father\nMother\nHusband\nWife\nSon\nDaughter\nBrother\nSister\nGrandfather\nGrandmother\nGrandson\nGranddaughter\nGreat-Grandfather\nGreat-Grandmother\nGreat-Grandson\nGreat-Granddaughter\nUncle\nAunt\nNephew\nNiece\nCousin\nBrother-in-law\nSister-in-law\nFather-in-law\nMother-in-law\nSon-in-law\nDaughter-in-law\nStepfather\nStepmother\nStepson\nStepdaughter\nStepbrother\nStepsister\nHalf-Brother\nHalf-Sister\nGodfather\nGodmother\nGodson\nGoddaughter\nGuardian\nWard\nAncestor\nDescendant\nPartner\nSpouse\nFianc\u00e9\nFianc\u00e9e\nBoyfriend\nGirlfriend\nParent\nChild\nSibling\nRelative"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-16 10:14:03.283461",
+ "modified_by": "Administrator",
+ "module": "Temple Profile",
+ "name": "Temple Profile Relatives",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

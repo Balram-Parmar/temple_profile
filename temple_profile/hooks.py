@@ -136,7 +136,7 @@ app_license = "mit"
 
 doc_events = {
     "*": {
-        "before_save": "temple_profile.events.global_temple_profile_handler"
+        "before_insert": "temple_profile.events.global_temple_profile_handler"
     }
 }
 

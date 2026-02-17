@@ -32,6 +32,7 @@ def is_doctype_enabled(doctype_name):
 
     return doctype_name in enabled_doctypes
 
+
 def process_temple_profile_link(doc):
     # 1. Standard Flag Check
     if doc.flags.via_custom_importer:
@@ -54,10 +55,7 @@ def process_temple_profile_link(doc):
         # --- Case 1: Exactly One Match ---
         if length == 1:
             existing_profile = profile_data[0]
-            
-            # FIX: Use direct assignment for before_save (db_set fails on new unsaved docs)
             doc.temple_id = existing_profile.name
-            
             frappe.msgprint(f"Linked to existing Temple Profile: {existing_profile.name}", alert=True)
 
         # --- Case 2: No Match (Create New) ---
@@ -73,13 +71,10 @@ def process_temple_profile_link(doc):
             })
             
             new_temple_profile.insert(ignore_permissions=True)
-            
-            # Link the new ID
             doc.temple_id = new_temple_profile.name
-            
             frappe.msgprint(f'Created new Temple Profile: {new_temple_profile.name}', alert=True)
 
-        # --- Case 3: Multiple Matches (Create Request) ---
+        # --- Case 3: Multiple Matches (Create Request & STOP) ---
         else:
             duplicate_rec = frappe.get_doc({
                 "doctype": "TP Creation Request",
@@ -99,14 +94,22 @@ def process_temple_profile_link(doc):
                 })
             
             duplicate_rec.insert(ignore_permissions=True)
+            frappe.db.commit()
             
+            # This throw raises a ValidationError
             frappe.throw(f'Duplicate detected. Created Request: {duplicate_rec.name}')
+
+    # --- CRITICAL FIX START ---
+    except frappe.exceptions.ValidationError:
+        # If the error is a ValidationError (caused by frappe.throw), 
+        # we MUST re-raise it so Frappe knows to stop the save.
+        raise
+    # --- CRITICAL FIX END ---
 
     except frappe.exceptions.DuplicateEntryError:
         frappe.msgprint("Warning: Duplicate Entry Error occurred.", alert=True)
 
     except Exception as e:
         frappe.log_error(f"Temple Profile Link Error: {str(e)}")
-        # Only show error if we are not in a background job
         if not frappe.flags.in_test:
             frappe.msgprint("Error linking Temple Profile. Check Error Log.", alert=True)

@@ -80,7 +80,7 @@ def process_temple_profile_link(doc):
                 "doctype": "TP Creation Request",
                 "full_name": doc.full_name,
                 "mobile_number": doc.mobile_number,
-                "description": f"Multiple records found while creating {doc.doctype}",
+                "description": f"Multiple conflicting records found in 'Temple Profile' while entering data for {doc.doctype}. Please review and resolve the duplicates manually to ensure accurate data entry. A creation request has been initiated to address the issue, but manual intervention is recommended to maintain data integrity.",
                 "source_doc_type": doc.doctype,
                 "conflicting_records": [] 
             })

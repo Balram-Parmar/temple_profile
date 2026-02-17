@@ -81,6 +81,7 @@ def process_csv(docname: str, target_doctype: str):
         # Clean basic identifiers for logic checks
         full_name = str(row.get('full_name', '')).strip()
         mobile_number = str(row.get('mobile_number', '')).strip()
+        email_id=str(row.get('email_id',"")).strip()
 
         # Skip invalid rows
         if not mobile_number or mobile_number.lower() == 'nan':
@@ -106,11 +107,14 @@ def process_csv(docname: str, target_doctype: str):
                 new_tp = frappe.get_doc({
                     "doctype": "Temple Profile",
                     "full_name": full_name,
-                    "mobile_number": mobile_number
+                    "mobile_number": mobile_number,
+                    "email_id":email_id
                 })
                 new_tp.insert(ignore_permissions=True)
                 temple_profile_name = new_tp.name
                 stats["temple_profile_created"] += 1
+              
+              
             except Exception as e:
                 frappe.log_error(f"Error creating profile for {mobile_number}: {str(e)}", "CSV Import Error")
                 continue

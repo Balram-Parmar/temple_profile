@@ -1,29 +1,49 @@
 # Copyright (c) 2026, balram and contributors
 # For license information, please see license.txt
 
+
+
 import frappe
 import pandas as pd
 import os
 
 from frappe.model.document import Document
 
+
 class Importer(Document):
-    # begin: auto-generated types
-    # This code is auto-generated. Do not modify anything in this block.
-    from typing import TYPE_CHECKING
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
 
-    if TYPE_CHECKING:
-        from frappe.types import DF
+	from typing import TYPE_CHECKING
 
-        attach: DF.Attach | None
-        name1: DF.Data | None
-        target_doc_type: DF.Literal["Folk", "Donor"]
-    # end: auto-generated types
-    pass
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		attach: DF.Attach | None
+		name1: DF.Data | None
+		target_doc_type: DF.Literal["Folk", "Donor"]
+	# end: auto-generated types
+
+	# begin: auto-generated types
+	# This code is auto-generated. Do not modify anything in this block.
+
+	from typing import TYPE_CHECKING
+
+	if TYPE_CHECKING:
+		from frappe.types import DF
+
+		attach: DF.Attach | None
+		name1: DF.Data | None
+		target_doc_type: DF.Literal["Folk", "Donor"]
+	
+
+	pass
+
 
 
 @frappe.whitelist()
 def process_csv(docname: str, target_doctype: str):
+
     # --- 1. Fetch Importer Document ---
     doc = frappe.get_doc("Importer", docname)
     if not doc.attach:
@@ -37,10 +57,8 @@ def process_csv(docname: str, target_doctype: str):
 
     # --- 3. Load & Validate CSV ---
     try:
-        # Read as string, fill NaNs with empty strings, and handle literal "nan" texts
+        # Read as string to preserve phone numbers/IDs
         df = pd.read_csv(file_path, dtype=str)
-        df.fillna('', inplace=True)
-        df = df.replace({'nan': '', 'NaN': ''})
     except Exception as e:
         return {"success": False, "error": f"Pandas Read Error: {str(e)}"}
 
@@ -56,46 +74,31 @@ def process_csv(docname: str, target_doctype: str):
         "existing_tp_profile": 0,
         "target_profile_created": 0,
         "existing_target_profile_linked": 0,
-        "temple_creation_req_created": 0 
+        "duplicates_flagged": 0 
     }
-   
 
-    # --- 4. Pre-fetch existing data to prevent N+1 queries ---
-    all_mobiles = [str(m).strip() for m in df['mobile_number'].unique() if str(m).strip()]
-    
-    # Pre-fetch Temple Profiles
-    existing_tps = frappe.db.get_all(
-        "Temple Profile", 
-        filters={"mobile_number": ("in", all_mobiles)}, 
-        fields=["name", "full_name", "mobile_number", "email_id"]
-    )
-    tp_map = {}
-    for tp in existing_tps:
-        tp_map.setdefault(tp.mobile_number, []).append(tp)
-
-    # Pre-fetch Target Profiles
-    existing_targets = frappe.db.get_all(
-        target_doctype, 
-        filters={"mobile_number": ("in", all_mobiles)}, 
-        fields=["name", "mobile_number"]
-    )
-    target_map = {t.mobile_number: t.name for t in existing_targets}
-
-    # --- 5. Process Rows ---
-    for row in df.to_dict('records'):
+    for index, row in df.iterrows():
+        # Clean basic identifiers for logic checks
         full_name = str(row.get('full_name', '')).strip()
         mobile_number = str(row.get('mobile_number', '')).strip()
-        email_id = str(row.get('email_id', '')).strip()
+        email_id=str(row.get('email_id',"")).strip()
 
         # Skip invalid rows
-        if not mobile_number:
+        if not mobile_number or mobile_number.lower() == 'nan':
             continue
         
         stats["processed"] += 1
         temple_profile_name = None
 
         # --- STEP A: Handle "Temple Profile" ---
-        existing_profiles = tp_map.get(mobile_number, [])
+        
+        # 1. Fetch ALL records with this number (not just one)
+        existing_profiles = frappe.db.get_all(
+            "Temple Profile", 
+            filters={"mobile_number": mobile_number}, 
+            fields=["name", "full_name",'mobile_number','email_id']
+        )
+        
         count = len(existing_profiles)
 
         if count == 0:
@@ -105,42 +108,31 @@ def process_csv(docname: str, target_doctype: str):
                     "doctype": "Temple Profile",
                     "full_name": full_name,
                     "mobile_number": mobile_number,
-                    "email_id": email_id
+                    "email_id":email_id
                 })
                 new_tp.insert(ignore_permissions=True)
                 temple_profile_name = new_tp.name
                 stats["temple_profile_created"] += 1
-                
-                # Add to local map so duplicates in the same CSV are caught
-                tp_map[mobile_number] = [{"name": new_tp.name, "full_name": full_name, "mobile_number": mobile_number, "email_id": email_id}]
+              
               
             except Exception as e:
                 frappe.log_error(f"Error creating profile for {mobile_number}: {str(e)}", "CSV Import Error")
                 continue
 
         elif count == 1:
-            # --- Case 1: Exact Match -> Flag in "TP Creation Request" ---
-            try:
-                prof = existing_profiles[0]
                 duplicate_req = frappe.get_doc({
                     "doctype": "TP Creation Request",
                     "full_name": full_name,
                     "mobile_number": mobile_number,
-                    "description": (
-                        f"User Tried to enter a record which is already present in Temple Profile, user tried to enter: Full Name : {full_name} , Mobile Number {mobile_number}\n"
-                        f"-> Already present data in temple profile : Full Name : {prof.get('full_name')} mobile number:{prof.get('mobile_number')} doctype name : {prof.get('name')}"
-                    ),
-                    "source_doc_type": "Custom Importer Tool"
+                    "description": f"""User Tried to enter a record which is already present in Temple Profile, user tried to enter: Full Name : {full_name} , Mobile Number {mobile_number}
+-> Already present data in temple profile : Full Name : {existing_profiles[0].full_name} mobile number:{existing_profiles[0].mobile_number} doctype name : {existing_profiles[0].name}
+""",
+                    "conflicting_records": [] ,
+                    'source_doc_type':"Custom Importer Tool"
                 })
-                duplicate_req.insert(ignore_permissions=True)
-                stats["temple_creation_req_created"] += 1
-                # Skipping Target Profile creation/linking as requested
-                continue
 
-            except Exception as e:
-                frappe.log_error(f"Error logging single duplicate request for {mobile_number}: {str(e)}", "CSV Import Error")
+                duplicate_req.insert(ignore_permissions=True)
                 continue
-                
         else:
             # --- Case 2: Multiple Records -> Flag in "TP Creation Request" ---
             try:
@@ -148,30 +140,38 @@ def process_csv(docname: str, target_doctype: str):
                     "doctype": "TP Creation Request",
                     "full_name": full_name,
                     "mobile_number": mobile_number,
-                    "description": f"Multiple records with same mobile number are found in Temple Profile database please resolve it and manually enter data in target doc type which is {target_doctype}",
-                    "source_doc_type": "Custom Importer Tool"
+                    "description": f"Multiple records with same mobile number are found in Temple Profile  database please resolve it and manually enter data in tagget doc type which is {target_doctype}",
+                    "conflicting_records": [] ,
+                    'source_doc_type':"Custom Importer Tool"
                 })
 
+                # frappe.msgprint(str(existing_profiles))
                 for profile in existing_profiles:
-                    duplicate_req.append("conflicting_records", {
-                        "full_name": profile.get('full_name'),
-                        "mobile_number": profile.get('mobile_number'),
-                        "email_id": profile.get('email_id') or "Na", 
-                        "temple_id": profile.get('name')
-                    })
+                    duplicate_req.append("conflicting_records", 
+                        {
+                        "full_name": profile.full_name,
+                        "mobile_number": profile.mobile_number,
+                        "email_id":profile.email_id if profile.email_id else "Na", 
+                        "temple_id":profile.name
+                        
+                        }
+                       
+                        )
                 
                 duplicate_req.insert(ignore_permissions=True)
-                stats["temple_creation_req_created"] += 1
+                stats["duplicates_flagged"] += 1
                 
                 # CRITICAL: Skip linking target profile because we don't know which Temple ID to use
                 continue 
 
             except Exception as e:
-                frappe.log_error(f"Error logging multiple duplicate request for {mobile_number}: {str(e)}", "CSV Import Error")
+                frappe.log_error(f"Error logging duplicate request for {mobile_number}: {str(e)}", "CSV Import Error")
                 continue
 
         # --- STEP B: Link to Target (Folk/Donor) ---
-        target_name = target_map.get(mobile_number)
+        # This code only runs if count was 0 or 1
+        
+        target_name = frappe.db.get_value(target_doctype, {"mobile_number": mobile_number}, "name")
 
         if target_name:
             # Case 1: Target exists -> Just link the Temple Profile
@@ -180,33 +180,110 @@ def process_csv(docname: str, target_doctype: str):
         else:
             # Case 2: Target does NOT exist -> Create NEW with DYNAMIC fields
             try:
+                # 1. Initialize data with system requirements
                 target_data = {
                     "doctype": target_doctype,
                     "temple_id": temple_profile_name
                 }
 
-                # Map cleaned CSV columns directly
-                for col, val in row.items():
-                    val = str(val).strip()
-                    if val:
+                # 2. Dynamically map ALL CSV columns to this dictionary
+                for col in df.columns:
+                    val = str(row[col]).strip()
+                    
+                    # Only add valid values (skip 'nan' or empty strings)
+                    if val and val.lower() != 'nan':
                         target_data[col] = val
 
+                # 3. Create the document
                 new_target = frappe.get_doc(target_data)
                 new_target.flags.via_custom_importer = True
                 new_target.insert(ignore_permissions=True)
                 stats["target_profile_created"] += 1
-                
-                # Add to local map to prevent creating multiple targets for duplicates inside the same CSV
-                target_map[mobile_number] = new_target.name
 
             except Exception as e:
                 frappe.log_error(f"Error creating target for {mobile_number}: {str(e)}", "CSV Import Error")
 
-    # --- 6. Commit & Return ---
+    # --- 5. Commit & Return ---
     frappe.db.commit()
+
+    clean_stats = {k: int(v) for k, v in stats.items()}
 
     return {
         "success": True,
         "message": "CSV Processing Completed",
-        "stats": {k: int(v) for k, v in stats.items()}
+        "stats": clean_stats
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

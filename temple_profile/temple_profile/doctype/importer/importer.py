@@ -10,6 +10,7 @@ from frappe.model.document import Document
 class Importer(Document):
     # begin: auto-generated types
     # This code is auto-generated. Do not modify anything in this block.
+
     from typing import TYPE_CHECKING
 
     if TYPE_CHECKING:
@@ -27,18 +28,25 @@ def process_csv(docname: str, target_doctype: str):
     # --- 1. Fetch Importer Document ---
     doc = frappe.get_doc("Importer", docname)
     if not doc.attach:
-        return {"success": False, "error": "No CSV file attached"}
+        return {"success": False, "error": "No file attached"}
 
     # --- 2. Resolve File Path ---
     file_path = frappe.get_site_path(doc.attach.lstrip("/"))
 
     if not os.path.exists(file_path):
-        return {"success": False, "error": "CSV file not found on server"}
+        return {"success": False, "error": "File not found on server"}
 
-    # --- 3. Load & Validate CSV ---
+    # --- 3. Load & Validate File ---
     try:
-        # Read as string, fill NaNs with empty strings, and handle literal "nan" texts
-        df = pd.read_csv(file_path, dtype=str)
+        # Read as string based on file extension, fill NaNs with empty strings, and handle literal "nan" texts
+        ext = file_path.lower()
+        if ext.endswith('.csv'):
+            df = pd.read_csv(file_path, dtype=str)
+        elif ext.endswith(('.xls', '.xlsx')):
+            df = pd.read_excel(file_path, dtype=str)
+        else:
+            return {"success": False, "error": "Unsupported file format. Please attach a CSV or Excel file."}
+            
         df.fillna('', inplace=True)
         df = df.replace({'nan': '', 'NaN': ''})
     except Exception as e:
@@ -48,7 +56,7 @@ def process_csv(docname: str, target_doctype: str):
     required_columns = ["full_name", "mobile_number"]
     missing = [c for c in required_columns if c not in df.columns]
     if missing:
-        frappe.throw(f"Missing mandatory columns in CSV: {', '.join(missing)}")
+        frappe.throw(f"Missing mandatory columns in File: {', '.join(missing)}")
     
     stats = {
         "processed": 0,
@@ -185,7 +193,7 @@ def process_csv(docname: str, target_doctype: str):
                     "temple_id": temple_profile_name
                 }
 
-                # Map cleaned CSV columns directly
+                # Map cleaned CSV/Excel columns directly
                 for col, val in row.items():
                     val = str(val).strip()
                     if val:
@@ -196,7 +204,7 @@ def process_csv(docname: str, target_doctype: str):
                 new_target.insert(ignore_permissions=True)
                 stats["target_profile_created"] += 1
                 
-                # Add to local map to prevent creating multiple targets for duplicates inside the same CSV
+                # Add to local map to prevent creating multiple targets for duplicates inside the same file
                 target_map[mobile_number] = new_target.name
 
             except Exception as e:
@@ -207,6 +215,6 @@ def process_csv(docname: str, target_doctype: str):
 
     return {
         "success": True,
-        "message": "CSV Processing Completed",
+        "message": "File Processing Completed",
         "stats": {k: int(v) for k, v in stats.items()}
     }

@@ -134,10 +134,23 @@ def process_csv(docname: str, target_doctype: str):
                     "doctype": "TP Creation Request",
                     "full_name": full_name,
                     "mobile_number": mobile_number,
-                    "description": (
-                        f"User Tried to enter a record which is already present in Temple Profile, user tried to enter: Full Name : {full_name} , Mobile Number {mobile_number}\n"
-                        f"-> Already present data in temple profile : Full Name : {prof.get('full_name')} mobile number:{prof.get('mobile_number')} doctype name : {prof.get('name')}"
-                    ),
+                    "description" : 
+                                    f"""
+                                🚫 Duplicate Entry Attempt Detected
+
+                                📌 User Attempted To Add:
+                                • Full Name      : {full_name}
+                                • Mobile Number  : {mobile_number}
+
+                                📂 Existing Record Found In Temple Profile:
+                                • Full Name      : {prof.get('full_name')}
+                                • Mobile Number  : {prof.get('mobile_number')}
+                                • Doctype Name   : {prof.get('name')}
+
+                                ⚠️ This record already exists in the system.
+                                """,
+
+
                     "source_doc_type": "Custom Importer Tool"
                 })
                 duplicate_req.insert(ignore_permissions=True)

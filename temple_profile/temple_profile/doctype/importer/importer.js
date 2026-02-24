@@ -66,39 +66,78 @@ frappe.ui.form.on("Importer", {
 			return;
 		}
 
-		// Fetch the file content
-		fetch(frm.doc.attach)
-			.then((response) => response.text())
-			.then((text) => {
-				// Split into lines (handle Windows \r\n and Unix \n)
-				let lines = text.split(/\r\n|\n/);
+		let file_url = frm.doc.attach;
+		let file_extension = file_url.split(".").pop().toLowerCase();
+		let supported_extensions = ["csv", "xls", "xlsx"];
+
+		if (!supported_extensions.includes(file_extension)) {
+			field_wrapper.html(
+				'<div class="text-warning">Unsupported file type for preview. Please attach a CSV or Excel file.</div>',
+			);
+			return;
+		}
+
+		if (typeof XLSX === "undefined") {
+			field_wrapper.html(
+				'<div class="text-danger">SheetJS library is not loaded. Cannot generate preview.</div>',
+			);
+			return;
+		}
+
+		// Show loading state
+		field_wrapper.html('<div class="text-muted">Loading preview...</div>');
+
+		// Fetch the file as an ArrayBuffer so SheetJS can read both text and binary formats
+		fetch(file_url)
+			.then((response) => {
+				if (!response.ok) throw new Error("Network response was not ok");
+				return response.arrayBuffer();
+			})
+			.then((buffer) => {
+				// Read the buffer using SheetJS
+				let wb = XLSX.read(buffer, { type: "array" });
+
+				// Get the first worksheet
+				let first_sheet_name = wb.SheetNames[0];
+				let worksheet = wb.Sheets[first_sheet_name];
+
+				// Convert worksheet to an Array of Arrays (header: 1)
+				// defval: "" ensures empty cells aren't skipped
+				let data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" });
+
+				// Remove any completely empty rows from the end
+				while (data.length > 0 && data[data.length - 1].join("").trim() === "") {
+					data.pop();
+				}
+
+				if (data.length === 0) {
+					field_wrapper.html('<div class="text-muted">File is empty.</div>');
+					return;
+				}
 
 				// Get Header + 10 Data Rows
-				let preview_rows = lines.slice(0, 11);
-
-				if (preview_rows.length === 0) return;
+				let preview_rows = data.slice(0, 11);
 
 				// Build HTML Table
 				let html = `
-                    <div style="overflow-x: auto;">
-                        <table class="table table-bordered table-condensed table-striped">
-                            <thead>`;
+                <div style="overflow-x: auto;">
+                    <table class="table table-bordered table-condensed table-striped">
+                        <thead>`;
 
 				preview_rows.forEach((row, index) => {
-					if (row.trim() === "") return;
-
-					// Basic CSV split by comma (Note: Does not handle commas inside quotes)
-					let columns = row.split(",");
-
 					if (index === 0) {
 						// Header Row
 						html += "<tr>";
-						columns.forEach((col) => (html += `<th>${col}</th>`));
+						row.forEach((col) => {
+							html += `<th>${col}</th>`;
+						});
 						html += "</tr></thead><tbody>";
 					} else {
 						// Data Rows
 						html += "<tr>";
-						columns.forEach((col) => (html += `<td>${col}</td>`));
+						row.forEach((col) => {
+							html += `<td>${col}</td>`;
+						});
 						html += "</tr>";
 					}
 				});
@@ -106,17 +145,17 @@ frappe.ui.form.on("Importer", {
 				html += `</tbody></table></div>`;
 
 				// Add "Showing X of Y rows" text
-				if (lines.length > 11) {
-					html += `<p class="text-muted small">Showing first 10 rows of ${lines.length - 1} total records.</p>`;
+				if (data.length > 11) {
+					html += `<p class="text-muted small">Showing first 10 rows of ${data.length - 1} total records.</p>`;
 				}
 
 				// Inject into the "table_data" field wrapper
 				field_wrapper.html(html);
 			})
 			.catch((error) => {
-				console.error("Error loading CSV:", error);
+				console.error("Error loading file:", error);
 				field_wrapper.html(
-					`<div class="text-danger">Error loading CSV preview: ${error.message}</div>`,
+					`<div class="text-danger">Error loading file preview: ${error.message}</div>`,
 				);
 			});
 	},
@@ -209,7 +248,22 @@ frappe.ui.form.on("Importer", {
 						document.body.removeChild(link);
 						frappe.show_alert({ message: "Template downloaded", indicator: "green" });
 					} else {
-						frappe.msgprint("Excel download requires server-side implementation.");
+						if (typeof XLSX === "undefined") {
+							frappe.msgprint(
+								"SheetJS library is not loaded. Check your hooks.py CDN link.",
+							);
+						} else {
+							let ws_data = [values.columns];
+							let ws = XLSX.utils.aoa_to_sheet(ws_data);
+							let wb = XLSX.utils.book_new();
+							XLSX.utils.book_append_sheet(wb, ws, "Template");
+
+							XLSX.writeFile(wb, `${target_doctype}_Template.xlsx`);
+							frappe.show_alert({
+								message: "Excel Template downloaded",
+								indicator: "green",
+							});
+						}
 					}
 					d.hide();
 				},

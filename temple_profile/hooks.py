@@ -26,8 +26,9 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/temple_profile/css/temple_profile.css"
-# app_include_js = "/assets/temple_profile/js/temple_profile.js"
-
+app_include_js = [
+    "https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"
+]
 # include js, css files in header of web template
 # web_include_css = "/assets/temple_profile/css/temple_profile.css"
 # web_include_js = "/assets/temple_profile/js/temple_profile.js"
